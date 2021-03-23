@@ -1,17 +1,19 @@
 // Initialize the canvas
 var canvas = document.getElementById('canvas'),
 context = canvas.getContext('2d');
+fitCanvasToScreen();
 context.imageSmoothingEnabled= false;
 context['imageSmoothingEnabled'] = false;
 context.font = "30px Minecraft";
 
 // Add event listeners for getting mouse positions
 document.addEventListener("mousemove", function (event) {
-    mousePos = getMousePosition(event);
+    var mousePosition = getMousePosition(event);
 });
 
-document.addEventListener('keydown', keyDownHandler, false);
-document.addEventListener('keyup', keyUpHandler, false);
+window.addEventListener('keydown', keyDownHandler, false);
+window.addEventListener('keyup', keyUpHandler, false);
+window.addEventListener('resize', fitCanvasToScreen, false);
 
 var rightPressed = false;
 var leftPressed = false;
@@ -21,22 +23,31 @@ var downPressed = false;
 setInterval(getFPS, 1000)
 
 // Define block textures as images
-stone = new Image();
+var stone = new Image();
 stone.src = './resources/textures/blocks/stone.png';
-stone_bricks = new Image();
+var stone_bricks = new Image();
 stone_bricks.src = './resources/textures/blocks/stone_bricks.png';
+var dirt = new Image();
+dirt.src = './resources/textures/blocks/dirt.png';
+var iron_block = new Image();
+iron_block.src = './resources/textures/blocks/iron_block.png';
+var gold_block = new Image();
+gold_block.src = './resources/textures/blocks/gold_block.png';
 // Add the textures to a list
-var textures = [stone, stone_bricks];
+var textures = [stone, stone_bricks, dirt, iron_block, gold_block];
 
 // Initialize variables
 var mouseX;
 var mouseY;
+var mouseBlockX;
+var mouseBlockY;
 var world = new Array();
 var keyboard = new Array();
 var rawCameraX = 0;
 var rawCameraY = 0;
 var fps = "Fetching...";
 var fpsCounter = 0;
+var tilesRendered = 0;
 
 // Start the render loop once all resources finish loading
 window.onload = function(){
@@ -48,19 +59,42 @@ window.onload = function(){
 console.log(world);
 
 function renderLoop() {
+    tilesRendered = 0;
     fpsCounter++;
     clear(context);
 
-    rawCameraY += upPressed ? 1 : 0;
-    rawCameraY -= downPressed ? 1 : 0;
-    rawCameraX += leftPressed ? 1 : 0;
-    rawCameraX -= rightPressed ? 1 : 0;
+    rawCameraY += upPressed ? 2 : 0;
+    rawCameraY -= downPressed ? 2 : 0;
+    rawCameraX += leftPressed ? 2 : 0;
+    rawCameraX -= rightPressed ? 2 : 0;
 
-    renderTerrain();
+    for (var x = 0; x < 3; x++) {
+        for (var y = 0; y < 3; y++) {
+            drawChunk(x, y);
+        }
+    }
 
-    context.fillText("FPS: " + fps, 20, 40);
-    context.fillText("Position (X: " + rawCameraX + " Y: " + rawCameraY + ")", 20, 80);
-    context.fillText("W: " + upPressed, 20, 120);
+    context.beginPath();
+    context.fillStyle = "rgba(0, 0, 0, 0.50)";
+    context.rect(10, 10, 440, 240);
+    context.fill();
+
+    drawShadowText("FPS: " + fps, 20, 40);
+    drawShadowText("Position (X: " + rawCameraX + " Y: " + rawCameraY + ")", 20, 80);
+    drawShadowText("Tiles Rendered: " + tilesRendered, 20, 120);
+
+    mouseBlockX = Math.floor((mouseX - rawCameraX) / 100);
+    mouseBlockY = Math.floor((mouseY - rawCameraY) / 100);
+
+    drawShadowText("Mouse X: " + mouseBlockX, 20, 160);
+    drawShadowText("Mouse Y: " + mouseBlockY, 20, 200);
+
+    drawShadowText("Potato", 20, 240, "green");
+
+    if (mouseBlockX > -1 && mouseBlockX < 10 && mouseBlockY > -1 && mouseBlockY < 10) {
+        world[mouseBlockX][mouseBlockY] = stone;
+    }
+    
 }
 
 function getMousePosition(event) {
@@ -76,15 +110,34 @@ function generateWorld() {
     for (var x = 0; x < 10; x++) {
         world[x] = new Array();
         for (var y = 0; y < 10; y++) {
-            world[x][y] = stone_bricks;
+            if (Math.random() < 0.5) {
+                world[x][y] = stone_bricks;
+            } else if (Math.random() < 0.5) {
+                world[x][y] = stone;
+            } else if (Math.random() < 0.5) {
+                world[x][y] = dirt;
+            } else if (Math.random() < 0.5) {
+                world[x][y] = iron_block;
+            } else {
+                world[x][y] = gold_block;
+            }
         }
     }
 }
 
-function renderTerrain() {
+function drawChunk(chunkX, chunkY) {
     for (var y = 0; y < 10; y++) {
         for (var x = 0; x < 10; x++) {
-            context.drawImage(world[x][y], x * 75 + rawCameraX, y * 75 + rawCameraY, 75, 75);
+            if (x * 100 + rawCameraX + (chunkX * 1000) < window.innerWidth) {
+                if (y * 100 + rawCameraY + (chunkY * 1000) < window.innerHeight) {
+                    if (x * 100 + rawCameraX + (chunkX * 1000) > -100) {
+                        if (y * 100 + rawCameraY + (chunkY * 1000) > -100) {
+                            context.drawImage(world[x][y], x * 100 + rawCameraX + (chunkX * 1000), y * 100 + rawCameraY + (chunkY * 1000), 100, 100);
+                                                tilesRendered++;
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -129,4 +182,23 @@ function keyUpHandler(event) {
     else if(event.key == KeyboardHelper.up) {
     	upPressed = false;
     }
+}
+
+function drawShadowText(text, x, y, primaryColor) {
+    context.fillStyle = "black";
+    context.fillText(text, x + 3, y + 3);
+    if (!primaryColor == "") {
+        context.fillStyle = primaryColor;
+    } else {
+        context.fillStyle = "white";
+    }
+    context.fillText(text, x, y);
+}
+
+function fitCanvasToScreen() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    context.imageSmoothingEnabled= false;
+    context['imageSmoothingEnabled'] = false;
+    context.font = "30px Minecraft";
 }
